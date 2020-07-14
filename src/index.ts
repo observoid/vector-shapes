@@ -64,7 +64,7 @@ export function pathCommandToString(cmd: PathCommand): string {
     }
     case PathCommand.Type.CUBIC_CURVE: {
       const [c1, c2] = cmd.controlPoints;
-      return `C${c1.x},${c2.y} ${c2.x},${c2.y} ${p.x},${p.y}`;
+      return `C${c1.x},${c1.y} ${c2.x},${c2.y} ${p.x},${p.y}`;
     }
     case PathCommand.Type.ARC: {
       return `A${cmd.radiusX} ${cmd.radiusY} ${cmd.rotateDegrees} ${cmd.largeArcFlag?1:0} ${cmd.sweepFlag?1:0} ${p.x},${p.y}`;
