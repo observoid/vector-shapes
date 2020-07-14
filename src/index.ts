@@ -357,3 +357,17 @@ export function fromSVGPathData(): OperatorFunction<string, SubPath> {
     );
   });
 }
+
+export namespace PackedSubPath {
+  export interface Buffer {
+    data: ArrayLike<number>;
+    offset: number;
+    stride: number;
+  }
+}
+
+export interface PackedSubPath extends SubPath<PathCommand.Line | PathCommand.CubicCurve> {
+  xBuffer: PackedSubPath.Buffer;
+  yBuffer: PackedSubPath.Buffer;
+  indexBuffer: PackedSubPath.Buffer;
+}
