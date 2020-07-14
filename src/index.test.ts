@@ -2,7 +2,7 @@
 import { TestHarness } from 'zora';
 import { of, from, Observable } from 'rxjs';
 import { toArray } from 'rxjs/operators';
-import { fromSVGPathData, PathCommand, SubPath } from '../src/index';
+import { fromSVGPathData, PathCommand, SubPath } from '../lib/index';
 
 async function subPathsToArray(subPaths: Observable<SubPath>): Promise<SubPath[]> {
   const subPathArray = await subPaths.pipe( toArray() ).toPromise();
