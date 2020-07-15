@@ -322,11 +322,8 @@ function splitSubPathStrings(): OperatorFunction<string, string> {
       },
       (e) => subscriber.error(e),
       () => {
-        if (/\S/.test(str)) {
-          const match = str.match(/^\s*(\S[\s\S]*)$/i);
-          if (!match) {
-            return;
-          }
+        const match = str.match(/^\s*(\S[\s\S]*)$/i);
+        if (match) {
           if (match[1][0].toLowerCase() !== 'm') {
             subscriber.error(new Error('expected M or m, got '+match[1][0]));
             return;
