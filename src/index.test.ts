@@ -67,12 +67,12 @@ export default (t: TestHarness) => {
       },
     ]);
 
-    const testInvalidParameters = (command: string) => {
+    const testInvalidCommand = (command: string) => {
       t.test(`${command} command parameter validation`, async t => {
         let thrown: any = undefined;
         let result: PathCommand[] | undefined = undefined;
         try {
-          const pathData = `M0,0 ${command}${/[hv]/i.test(command) ? '' : '1'}`;
+          const pathData = `M0,0 ${command}`;
           const subPath = await of(pathData).pipe( fromSVGPathData() ).toPromise();
           result = await from(subPath.commands).pipe( toArray() ).toPromise();
         }
@@ -84,20 +84,21 @@ export default (t: TestHarness) => {
       });
     };
 
-    testInvalidParameters('L');
-    testInvalidParameters('l');
-    testInvalidParameters('H');
-    testInvalidParameters('h');
-    testInvalidParameters('V');
-    testInvalidParameters('v');
-    testInvalidParameters('Q');
-    testInvalidParameters('q');
-    testInvalidParameters('T');
-    testInvalidParameters('t');
-    testInvalidParameters('C');
-    testInvalidParameters('c');
-    testInvalidParameters('S');
-    testInvalidParameters('s');
+    testInvalidCommand('L1');
+    testInvalidCommand('l1');
+    testInvalidCommand('H');
+    testInvalidCommand('h');
+    testInvalidCommand('V');
+    testInvalidCommand('v');
+    testInvalidCommand('Q1');
+    testInvalidCommand('q1');
+    testInvalidCommand('T1');
+    testInvalidCommand('t1');
+    testInvalidCommand('C1');
+    testInvalidCommand('c1');
+    testInvalidCommand('S1');
+    testInvalidCommand('s1');
+    testInvalidCommand('X');
 
   });
 
