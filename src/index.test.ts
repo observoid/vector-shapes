@@ -90,7 +90,7 @@ export default (t: TestHarness) => {
         let thrown: any = undefined;
         let result: PathCommand[] | undefined = undefined;
         try {
-          const subPath = await of(pathData).pipe( fromSVGPathData() ).toPromise();
+          const subPath = await of(pathData + 'M0 0').pipe( fromSVGPathData() ).toPromise();
           result = await from(subPath.commands).pipe( toArray() ).toPromise();
         }
         catch (e) {
