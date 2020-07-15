@@ -65,14 +65,13 @@ export default (t: TestHarness) => {
         ],
         closed: false,
       },
-    ]);
+    ]);    
 
-    const testInvalidCommand = (command: string) => {
-      t.test(`${command} command parameter validation`, async t => {
+    const testInvalidSubPath = (pathData: string) => {
+      t.test(`test bad subpath: ${pathData}`, async t => {
         let thrown: any = undefined;
         let result: PathCommand[] | undefined = undefined;
         try {
-          const pathData = `M0,0 ${command}`;
           const subPath = await of(pathData).pipe( fromSVGPathData() ).toPromise();
           result = await from(subPath.commands).pipe( toArray() ).toPromise();
         }
@@ -83,6 +82,8 @@ export default (t: TestHarness) => {
         t.notEq(thrown, undefined);
       });
     };
+
+    const testInvalidCommand = (command: string) => testInvalidSubPath(`M0,0 ${command}`);
 
     testInvalidCommand('L1');
     testInvalidCommand('l1');
@@ -99,6 +100,9 @@ export default (t: TestHarness) => {
     testInvalidCommand('S1');
     testInvalidCommand('s1');
     testInvalidCommand('X');
+
+    testInvalidSubPath('M0');
+    testInvalidSubPath('L0,0');
 
   });
 
