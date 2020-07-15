@@ -97,12 +97,12 @@ function pathCommands(startPoint: PathCommand.Point, input: Observable<string>):
   let cMirror = lastPoint;
   return new Observable(subscriber => {
     const onCompleteCommand = (cmdString: string) => {
-      const match = cmdString.match(/^\s*([a-df-z])([^a-df-z]*)$/i);
+      const match = cmdString.match(/^\s*([a-df-z])\s*((?!\s)[^a-df-z]+)?$/i);
       if (!match) {
         subscriber.error(new Error('invalid command: ' + cmdString));
         return;
       }
-      const commandCode = match[1], commandParameters = match[2].trim().split(/\s*,\s*|\s+/g).map(parseFloat);
+      const commandCode = match[1], commandParameters = match[2] ? match[2].trim().split(/\s*,\s*|\s+/g).map(parseFloat) : [];
       switch (commandCode) {
         case 'L': {
           if (commandParameters.length < 2 || commandParameters.length % 2) {
