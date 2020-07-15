@@ -22,7 +22,23 @@ export default (t: TestHarness) => {
   t.test('fromSVGPathData', async t => {
 
     const result = await subPathsToArray(
-      of('M0,0 L100,100')
+      of(`
+        M0,0
+        L100,100
+        l50,25
+        H50
+        h-10
+        V30
+        v10
+        Q 65,75 90,110
+        q 30,30 55,65
+        T 200,300
+        t 500,700
+        C 450,625 275,300 100,150
+        c 35,45 65,85 150,175
+        S 500,700 1000,1500
+        s 1000,2000 5000,2500
+      `)
       .pipe(
         fromSVGPathData(),
       )
@@ -32,7 +48,20 @@ export default (t: TestHarness) => {
       {
         startPoint: {x:0, y:0},
         commands: [
-          {type:PathCommand.Type.LINE, toPoint:{x:100,y:100}}
+          {type:PathCommand.Type.LINE, toPoint:{x:100,y:100}},
+          {type:PathCommand.Type.LINE, toPoint:{x:150,y:125}},
+          {type:PathCommand.Type.LINE, toPoint:{x:50,y:125}},
+          {type:PathCommand.Type.LINE, toPoint:{x:40,y:125}},
+          {type:PathCommand.Type.LINE, toPoint:{x:40,y:30}},
+          {type:PathCommand.Type.LINE, toPoint:{x:40,y:40}},
+          {type:PathCommand.Type.QUADRATIC_CURVE, controlPoints:[{x:65, y:75}], toPoint:{x:90, y:110}},
+          {type:PathCommand.Type.QUADRATIC_CURVE, controlPoints:[{x:120, y:140}], toPoint:{x:145, y:175}},
+          {type:PathCommand.Type.QUADRATIC_CURVE, controlPoints:[{x:170, y:210}], toPoint:{x:200, y:300}},
+          {type:PathCommand.Type.QUADRATIC_CURVE, controlPoints:[{x:230, y:390}], toPoint:{x:700, y:1000}},
+          {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:450, y:625}, {x:275, y:300}], toPoint:{x:100, y:150}},
+          {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:135, y:195}, {x:165, y:235}], toPoint:{x:250, y:325}},
+          {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:335, y:415}, {x:500, y:700}], toPoint:{x:1000, y:1500}},
+          {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:1500, y:2300}, {x:2000, y:3500}], toPoint:{x:6000, y:4000}},
         ],
         closed: false,
       },
