@@ -287,7 +287,7 @@ function pathCommands(startPoint: PathCommand.Point, input: Observable<string>):
       str => {
         str = prefix + str;
         for (;;) {
-          const match = prefix.match(/^\s*[a-df-z][^a-df-z](?=[a-df-z])/i);
+          const match = str.match(/^\s*[a-df-z][^a-df-z]*(?=[a-df-z])/i);
           if (!match) break;
           onCompleteCommand(match[0]);
           str = str.slice(match[0].length);
