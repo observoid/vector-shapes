@@ -67,6 +67,38 @@ export default (t: TestHarness) => {
       },
     ]);
 
+    const testInvalidParameters = (command: string) => {
+      t.test(`${command} command parameter validation`, async t => {
+        let thrown: any = undefined;
+        let result: PathCommand[] | undefined = undefined;
+        try {
+          const pathData = `M0,0 ${command}${/[hv]/i.test(command) ? '' : '1'}`;
+          const subPath = await of(pathData).pipe( fromSVGPathData() ).toPromise();
+          result = await from(subPath.commands).pipe( toArray() ).toPromise();
+        }
+        catch (e) {
+          thrown = e;
+        }
+        t.eq(result, undefined);
+        t.notEq(thrown, undefined);
+      });
+    };
+
+    testInvalidParameters('L');
+    testInvalidParameters('l');
+    testInvalidParameters('H');
+    testInvalidParameters('h');
+    testInvalidParameters('V');
+    testInvalidParameters('v');
+    testInvalidParameters('Q');
+    testInvalidParameters('q');
+    testInvalidParameters('T');
+    testInvalidParameters('t');
+    testInvalidParameters('C');
+    testInvalidParameters('c');
+    testInvalidParameters('S');
+    testInvalidParameters('s');
+
   });
 
   t.test('toSVGPathData', async t => {
