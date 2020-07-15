@@ -130,6 +130,12 @@ export default (t: TestHarness) => {
           {type: PathCommand.Type.ARC, radiusX: 100, radiusY: 100, rotateDegrees: 0, toPoint: {x:300, y:250}},
         ],
       },
+      {
+        startPoint: {x:250, y:25},
+        commands: [
+          {type: PathCommand.Type.ARC, radiusX: 100, radiusY: 100, rotateDegrees: 0, largeArcFlag:true, sweepFlag:true, toPoint: {x:300, y:250}},
+        ],
+      },
     ];
 
     const result = await from(subPaths).pipe(
@@ -137,7 +143,7 @@ export default (t: TestHarness) => {
       reduce((all, str) => all + str, '')
     ).toPromise();
 
-    t.eq(normalizeSVGPathData(result), 'M50 25 L100 10 Z M150 25 Q155 50 200 45 C205 40 210 35 220 0 M250 25 A100 100 0 0 0 300 250');
+    t.eq(normalizeSVGPathData(result), 'M50 25 L100 10 Z M150 25 Q155 50 200 45 C205 40 210 35 220 0 M250 25 A100 100 0 0 0 300 250 M250 25 A100 100 0 1 1 300 250');
 
   });
 
