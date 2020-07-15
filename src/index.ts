@@ -1,6 +1,6 @@
 
 import { Observable, OperatorFunction, of, ObservableInput, from } from 'rxjs';
-import { map, concatAll } from 'rxjs/operators';
+import { map, concatAll, concatMap, toArray } from 'rxjs/operators';
 
 export namespace PathCommand {
   export const enum Type {
@@ -301,57 +301,76 @@ function pathCommands(startPoint: PathCommand.Point, input: Observable<string>):
   });
 }
 
-export function fromSVGPathData(): OperatorFunction<string, SubPath> {
+function splitSubPathStrings(): OperatorFunction<string, string> {
   return input => new Observable(subscriber => {
-    let prefix = '';
-    let lastPoint = {x:0, y:0};
-    const onCompleteSubPath = (str: string) => {
-      const match = str.match(/^\s*(m)([^a-df-z]*)([^mz]*)(z\s*)?$/i);
-      if (!match) {
-        subscriber.error(new Error('invalid command'));
-        return;
-      }
-      const moveParams = match[2].trim().split(/\s*,\s*|\s+/g).map(parseFloat);
-      if (moveParams.length < 2 || moveParams.length % 2) {
-        subscriber.error(new Error('invalid number of parameters: ' + match[1] + match[2]));
-        return;
-      }
-      lastPoint = (
-        match[1] === 'm'
-        ? {x: lastPoint.x + moveParams[0], y: lastPoint.y + moveParams[1]}
-        : {x:               moveParams[0], y:               moveParams[1]}
-      );
-      let commandStr = match[3];
-      if (moveParams.length > 2) {
-        commandStr = `${match[1] === 'm' ? 'l' : 'L'}${moveParams.slice(2).join(' ')} ${commandStr}`;
-      }
-      subscriber.next({
-        closed: !!match[4],
-        startPoint: lastPoint,
-        commands: pathCommands(lastPoint, of(commandStr)),
-      });
-    };
+    let str = '';
     return input.subscribe(
-      str => {
-        str = prefix + str;
+      chunk => {
+        str += chunk;
         for (;;) {
-          const match = str.match(/^\s*m[^a-df-z]*[^mz]*(?:z|(?=m))/i);
-          if (!match) break;
-          onCompleteSubPath(match[0]);
+          const match = str.match(/^\s*(\S[^zm]*)(?=m)/i);
+          if (!match) {
+            return;
+          }
+          if (match[1][0].toLowerCase() !== 'm') {
+            subscriber.error(new Error('expected M or m, got '+match[1][0]));
+            return;
+          }
+          subscriber.next(match[1]);
           str = str.slice(match[0].length);
         }
-        prefix = str;
       },
-      e => subscriber.error(e),
+      (e) => subscriber.error(e),
       () => {
-        prefix = prefix.trim();
-        if (prefix !== '') {
-          onCompleteSubPath(prefix);
+        if (/\S/.test(str)) {
+          const match = str.match(/^\s*(\S[\s\S]*)$/i);
+          if (!match) {
+            return;
+          }
+          if (match[1][0].toLowerCase() !== 'm') {
+            subscriber.error(new Error('expected M or m, got '+match[1][0]));
+            return;
+          }
+          subscriber.next(match[1]);
         }
         subscriber.complete();
       },
     );
   });
+}
+
+export function fromSVGPathData(): OperatorFunction<string, SubPath> {
+  return input => {
+    let lastPoint = {x:0, y:0};
+    return input.pipe(
+      splitSubPathStrings(),
+      concatMap((subPathString): Observable<SubPath> => {
+        const match = subPathString.match(/^\s*(m)([^a-df-z]*)([^mz]*)(z\s*)?$/i)!;
+        const moveParams = match[2].trim().split(/\s*,\s*|\s+/g).map(parseFloat);
+        if (moveParams.length < 2 || moveParams.length % 2) {
+          throw new Error('invalid number of parameters: ' + match[1] + match[2]);
+        }
+        lastPoint = (
+          match[1] === 'm'
+          ? {x: lastPoint.x + moveParams[0], y: lastPoint.y + moveParams[1]}
+          : {x:               moveParams[0], y:               moveParams[1]}
+        );
+        let commandStr = match[3];
+        if (moveParams.length > 2) {
+          commandStr = `${match[1] === 'm' ? 'l' : 'L'}${moveParams.slice(2).join(' ')} ${commandStr}`;
+        }
+        const closed = !!match[4];
+        const startPoint = lastPoint;
+        return pathCommands(startPoint, of(commandStr)).pipe(
+          toArray(),
+          map(commands => {
+            lastPoint = commands[commands.length-1].toPoint;
+            return { closed, startPoint, commands };
+          }),
+        )
+      }),
+    );
+  };
 }
 
 export namespace PackedSubPath {
