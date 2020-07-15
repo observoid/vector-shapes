@@ -38,6 +38,10 @@ export default (t: TestHarness) => {
         c 35,45 65,85 150,175
         S 500,700 1000,1500
         s 1000,2000 5000,2500
+
+        M0,0 30,50
+
+        m10,20 100,300
       `)
       .pipe(
         fromSVGPathData(),
@@ -62,6 +66,20 @@ export default (t: TestHarness) => {
           {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:135, y:195}, {x:165, y:235}], toPoint:{x:250, y:325}},
           {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:335, y:415}, {x:500, y:700}], toPoint:{x:1000, y:1500}},
           {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:1500, y:2300}, {x:2000, y:3500}], toPoint:{x:6000, y:4000}},
+        ],
+        closed: false,
+      },
+      {
+        startPoint: {x:0, y:0},
+        commands: [
+          {type:PathCommand.Type.LINE, toPoint:{x:30,y:50}},
+        ],
+        closed: false,
+      },
+      {
+        startPoint: {x:40, y:70},
+        commands: [
+          {type:PathCommand.Type.LINE, toPoint:{x:140,y:370}},
         ],
         closed: false,
       },
