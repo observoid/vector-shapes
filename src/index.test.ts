@@ -2,7 +2,7 @@
 import { TestHarness } from 'zora';
 import { of, from, Observable, ObservableInput } from 'rxjs';
 import { toArray, reduce } from 'rxjs/operators';
-import { fromSVGPathData, PathCommand, SubPath, toSVGPathData } from '../lib/index';
+import { fromSVGPathData, PathCommand, SubPath, toSVGPathData, invertSubPaths } from '../lib/index';
 
 async function subPathsToArray(subPaths: Observable<SubPath>): Promise<SubPath[]> {
   const subPathArray = await subPaths.pipe( toArray() ).toPromise();
@@ -162,6 +162,67 @@ export default (t: TestHarness) => {
     ).toPromise();
 
     t.eq(normalizeSVGPathData(result), 'M50 25 L100 10 Z M150 25 Q155 50 200 45 C205 40 210 35 220 0 M250 25 A100 100 0 0 0 300 250 M250 25 A100 100 0 1 1 300 250');
+
+  });
+
+  t.test('invertSubPaths', async t => {
+
+    const inverted = await from<SubPath[]>([
+      {
+        startPoint: {x:100, y:100},
+        commands: [
+        ],
+        closed: false,
+      },
+      {
+        startPoint: {x:0, y:0},
+        commands: [
+          {type:PathCommand.Type.LINE, toPoint:{x:100, y:100}},
+          {type:PathCommand.Type.LINE, toPoint:{x:0, y:100}},
+        ],
+        closed: true,
+      },
+      {
+        startPoint: {x:0, y:0},
+        commands: [
+          {type:PathCommand.Type.QUADRATIC_CURVE, controlPoints: [{x:0,y:100}], toPoint: {x:100,y:100}},
+          {type:PathCommand.Type.CUBIC_CURVE, controlPoints: [{x:200,y:0}, {x:300, y:200}], toPoint: {x:400, y:100}},
+          {type:PathCommand.Type.ARC, radiusX: 100, radiusY:80, rotateDegrees:15, largeArcFlag:true, sweepFlag:true, toPoint: {x:1000,y:100}},
+        ],
+        closed: false,
+      },
+    ])
+    .pipe(
+      invertSubPaths(),
+      toArray(),
+    )
+    .toPromise();
+
+    t.eq(inverted, [
+      {
+        startPoint: {x:100, y:100},
+        commands: [
+        ],
+        closed: false,
+      },
+      {
+        startPoint: {x:0, y:0},
+        commands: [
+          {type:PathCommand.Type.LINE, toPoint:{x:0, y:100}},
+          {type:PathCommand.Type.LINE, toPoint:{x:100, y:100}},
+        ],
+        closed: true,
+      },
+      {
+        startPoint: {x:1000, y:100},
+        commands: [
+          {type:PathCommand.Type.ARC, radiusX: 100, radiusY:80, rotateDegrees:15, largeArcFlag:true, sweepFlag:false, toPoint: {x:400,y:100}},
+          {type:PathCommand.Type.CUBIC_CURVE, controlPoints: [{x:300, y:200}, {x:200,y:0}], toPoint: {x:100, y:100}},
+          {type:PathCommand.Type.QUADRATIC_CURVE, controlPoints: [{x:0,y:100}], toPoint: {x:0,y:0}},
+        ],
+        closed: false,
+      },
+    ]);
 
   });
 

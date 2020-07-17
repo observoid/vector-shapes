@@ -383,3 +383,86 @@ export interface PackedSubPath extends SubPath<PathCommand.Line | PathCommand.Cu
   yBuffer: PackedSubPath.Buffer;
   indexBuffer: PackedSubPath.Buffer;
 }
+
+export function invertSubPaths(): OperatorFunction<SubPath, SubPath> {
+  return input => input.pipe(
+    concatMap(subPath => from(subPath.commands).pipe(
+      toArray(),
+      map(commands => {
+        const closed = !!subPath.closed;
+        if (commands.length === 0) {
+          return { startPoint: subPath.startPoint, commands, closed };
+        }
+        if (subPath.closed) {
+          const last = commands[commands.length-1];
+          if (last.toPoint.x !== subPath.startPoint.x || last.toPoint.y !== subPath.startPoint.y) {
+            commands.push({
+              type: PathCommand.Type.LINE,
+              toPoint: subPath.startPoint,
+            });
+          }
+        }
+        commands.reverse();
+        // an extra line command is appended before the loop, and removed afterwards
+        commands.push({
+          type: PathCommand.Type.LINE,
+          toPoint: subPath.startPoint,
+        });
+        const startPoint = commands[0].toPoint;
+        for (let i = 0; i < commands.length-1; i++) {
+          const segment = commands[i];
+          switch (segment.type) {
+            case PathCommand.Type.LINE: {
+              commands[i] = {
+                type: PathCommand.Type.LINE,
+                toPoint: commands[i+1].toPoint,
+              };
+              break;
+            }
+            case PathCommand.Type.CUBIC_CURVE: {
+              commands[i] = {
+                type: PathCommand.Type.CUBIC_CURVE,
+                controlPoints: [
+                  segment.controlPoints[1],
+                  segment.controlPoints[0],
+                ],
+                toPoint: commands[i+1].toPoint,
+              };
+              break;
+            }
+            case PathCommand.Type.QUADRATIC_CURVE: {
+              commands[i] = {
+                type: PathCommand.Type.QUADRATIC_CURVE,
+                controlPoints: segment.controlPoints,
+                toPoint: commands[i+1].toPoint,
+              };
+              break;
+            }
+            case PathCommand.Type.ARC: {
+              commands[i] = {
+                type: PathCommand.Type.ARC,
+                radiusX: segment.radiusX,
+                radiusY: segment.radiusY,
+                sweepFlag: !segment.sweepFlag,
+                rotateDegrees: segment.rotateDegrees,
+                largeArcFlag: segment.largeArcFlag,
+                toPoint: commands[i+1].toPoint,
+              }
+              break;
+            }
+          }
+        }
+        commands.pop();
+        if (subPath.closed) {
+          const last = commands[commands.length-1];
+          if (last.type === PathCommand.Type.LINE
+              && last.toPoint.x === startPoint.x
+              && last.toPoint.y === startPoint.y) {
+            commands.pop();
+          }
+        }
+        return { startPoint, commands, closed };
+      }),
+     ))
+  );
+}
