@@ -163,6 +163,18 @@ export default (t: TestHarness) => {
 
     t.eq(normalizeSVGPathData(result), 'M50 25 L100 10 Z M150 25 Q155 50 200 45 C205 40 210 35 220 0 M250 25 A100 100 0 0 0 300 250 M250 25 A100 100 0 1 1 300 250');
 
+    const fixedSubPath: SubPath = {
+      startPoint: {x:0, y:0},
+      closed: false,
+      commands: [],
+      svgPathData: 'M100,100L200,100Z',
+    };
+    const result2 = await of(fixedSubPath).pipe(
+      toSVGPathData(),
+      toArray(),
+    ).toPromise();
+    t.eq(result2, [fixedSubPath.svgPathData]);
+
   });
 
   t.test('invertSubPaths', async t => {

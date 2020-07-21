@@ -50,6 +50,7 @@ export interface SubPath<TCommand extends PathCommand = PathCommand> {
   readonly startPoint: PathCommand.Point;
   readonly commands: ObservableInput<TCommand>;
   readonly closed?: boolean;
+  readonly svgPathData?: string;
 }
 
 export function pathCommandToString(cmd: PathCommand): string {
@@ -75,6 +76,8 @@ export function pathCommandToString(cmd: PathCommand): string {
 export function toSVGPathData(): OperatorFunction<SubPath, string> {
   return input => input.pipe(
     map(subPath => {
+      const { svgPathData } = subPath;
+      if (typeof svgPathData === 'string') return of(svgPathData);
       return new Observable<string>(subscriber => {
         subscriber.next(`M${subPath.startPoint.x},${subPath.startPoint.y}`);
         return from(subPath.commands).subscribe(
