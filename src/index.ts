@@ -14,6 +14,10 @@ export namespace PathCommand {
     readonly x: number;
     readonly y: number;
   }
+
+  export interface PointTransformer {
+    transformPoint(pt: Point): Point;
+  }
   
   export interface Line {
     readonly type: Type.LINE;
@@ -468,4 +472,40 @@ export function invertSubPaths(): OperatorFunction<SubPath, SubPath> {
       }),
      ))
   );
+}
+
+export function transformPathCommandPoints(transformer: PathCommand.PointTransformer): OperatorFunction<PathCommand, PathCommand> {
+  return input => input.pipe(
+    map(command => {
+      switch (command.type) {
+        case PathCommand.Type.LINE: return {
+          type: PathCommand.Type.LINE,
+          toPoint: transformer.transformPoint(command.toPoint),
+        };
+        case PathCommand.Type.QUADRATIC_CURVE: return {
+          type: PathCommand.Type.QUADRATIC_CURVE,
+          controlPoints: [transformer.transformPoint(command.controlPoints[0])],
+          toPoint: transformer.transformPoint(command.toPoint),
+        };
+        case PathCommand.Type.CUBIC_CURVE: return {
+          type: PathCommand.Type.CUBIC_CURVE,
+          controlPoints: [
+            transformer.transformPoint(command.controlPoints[0]),
+            transformer.transformPoint(command.controlPoints[1]),
+          ],
+          toPoint: transformer.transformPoint(command.toPoint),
+        };
+        case PathCommand.Type.ARC: throw new Error('unable to transform arc point-by-point');
+      }
+    }),
+  );
+}
+
+export function transformSubPathPoints(transformer: PathCommand.PointTransformer): OperatorFunction<SubPath, SubPath> {
+  const operator = transformPathCommandPoints(transformer);
+  return map(subPath => ({
+    startPoint: transformer.transformPoint(subPath.startPoint),
+    commands: operator(from(subPath.commands)),
+    closed: subPath.closed,
+  }));
 }

@@ -2,7 +2,7 @@
 import { TestHarness } from 'zora';
 import { of, from, Observable, ObservableInput } from 'rxjs';
 import { toArray, reduce } from 'rxjs/operators';
-import { fromSVGPathData, PathCommand, SubPath, toSVGPathData, invertSubPaths } from '../lib/index';
+import { fromSVGPathData, PathCommand, SubPath, toSVGPathData, invertSubPaths, transformSubPathPoints } from '../lib/index';
 
 async function subPathsToArray(subPaths: Observable<SubPath>): Promise<SubPath[]> {
   const subPathArray = await subPaths.pipe( toArray() ).toPromise();
@@ -236,6 +236,61 @@ export default (t: TestHarness) => {
       },
     ]);
 
+  });
+
+  t.test('transformSubPaths', async t => {
+
+    const result = await subPathsToArray(of(`
+      M0,0
+      L30,50
+      Q50,60 100,200
+      C300,400 500,600 700,800
+      Z
+    `)
+    .pipe(
+      fromSVGPathData(),
+      transformSubPathPoints({
+        transformPoint(pt) {
+          return {x: pt.x - 100, y: pt.y + 200};
+        }
+      }),
+    ));
+
+    t.eq(result, [
+      {
+        startPoint: {x:-100, y:200},
+        commands: [
+          {type:PathCommand.Type.LINE, toPoint: {x:-70, y:250}},
+          {type:PathCommand.Type.QUADRATIC_CURVE, controlPoints:[{x:-50, y:260}], toPoint: {x:0, y:400}},
+          {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:200, y:600}, {x:400, y:800}], toPoint: {x:600, y:1000}},
+        ],
+        closed: true,
+      },
+    ]);
+
+    let badResult = undefined;
+    let thrown = undefined;
+    try {
+      badResult = await subPathsToArray(of(`
+        M0,0
+        A100 100 0 1 1 300 250
+        Z
+      `)
+      .pipe(
+        fromSVGPathData(),
+        transformSubPathPoints({
+          transformPoint(pt) {
+            return {x: pt.x - 100, y: pt.y + 200};
+          }
+        }),
+      ));
+    }
+    catch (e) {
+      thrown = e;
+      console.log(thrown);
+    }
+    t.eq(badResult, undefined);
+    t.notEq(thrown, undefined);
   });
 
 }
