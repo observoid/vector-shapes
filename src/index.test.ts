@@ -38,6 +38,8 @@ export default (t: TestHarness) => {
         c 35,45 65,85 150,175
         S 500,700 1000,1500
         s 1000,2000 5000,2500
+        A 40,55 25 0 1 100 100
+        a 55,40 -25 1 0 100 100
 
         M0,0 30,50
 
@@ -66,6 +68,8 @@ export default (t: TestHarness) => {
           {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:135, y:195}, {x:165, y:235}], toPoint:{x:250, y:325}},
           {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:335, y:415}, {x:500, y:700}], toPoint:{x:1000, y:1500}},
           {type:PathCommand.Type.CUBIC_CURVE, controlPoints:[{x:1500, y:2300}, {x:2000, y:3500}], toPoint:{x:6000, y:4000}},
+          {type:PathCommand.Type.ARC, radiusX:40, radiusY:55, rotateDegrees: 25, largeArcFlag:false, sweepFlag:true, toPoint:{x:100, y:100}},
+          {type:PathCommand.Type.ARC, radiusX:55, radiusY:40, rotateDegrees: -25, largeArcFlag:true, sweepFlag:false, toPoint:{x:200, y:200}},
         ],
         closed: false,
       },
@@ -117,6 +121,8 @@ export default (t: TestHarness) => {
     testInvalidCommand('c1');
     testInvalidCommand('S1');
     testInvalidCommand('s1');
+    testInvalidCommand('A1');
+    testInvalidCommand('a1');
     testInvalidCommand('X');
 
     testInvalidSubPath('M0');
@@ -287,7 +293,6 @@ export default (t: TestHarness) => {
     }
     catch (e) {
       thrown = e;
-      console.log(thrown);
     }
     t.eq(badResult, undefined);
     t.notEq(thrown, undefined);

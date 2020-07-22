@@ -279,6 +279,44 @@ function pathCommands(startPoint: PathCommand.Point, input: Observable<string>):
           }
           return;
         }
+        case 'A': {
+          if (commandParameters.length < 7 || commandParameters.length % 7) {
+            subscriber.error(new Error('invalid number of parameters: ' + cmdString));
+            return;
+          }
+          for (let i = 0; i < commandParameters.length; i += 7) {
+            lastPoint = {x: commandParameters[i+5], y: commandParameters[i+6]};
+            subscriber.next({
+              type: PathCommand.Type.ARC,
+              radiusX: commandParameters[i],
+              radiusY: commandParameters[i+1],
+              rotateDegrees: commandParameters[i+2],
+              largeArcFlag: !!commandParameters[i+3],
+              sweepFlag: !!commandParameters[i+4],
+              toPoint: lastPoint,
+            });
+          }
+          return;
+        }
+        case 'a': {
+          if (commandParameters.length < 7 || commandParameters.length % 7) {
+            subscriber.error(new Error('invalid number of parameters: ' + cmdString));
+            return;
+          }
+          for (let i = 0; i < commandParameters.length; i += 7) {
+            lastPoint = {x: lastPoint.x + commandParameters[i+5], y: lastPoint.y + commandParameters[i+6]};
+            subscriber.next({
+              type: PathCommand.Type.ARC,
+              radiusX: commandParameters[i],
+              radiusY: commandParameters[i+1],
+              rotateDegrees: commandParameters[i+2],
+              largeArcFlag: !!commandParameters[i+3],
+              sweepFlag: !!commandParameters[i+4],
+              toPoint: lastPoint,
+            });
+          }
+          return;
+        }
         default: {
           subscriber.error(new Error('invalid command: ' + cmdString));
           return;
