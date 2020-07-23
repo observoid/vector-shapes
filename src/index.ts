@@ -547,3 +547,133 @@ export function transformSubPathPoints(transformer: PathCommand.PointTransformer
     closed: subPath.closed,
   }));
 }
+
+// adapted from https://github.com/colinmeinke/svg-arc-to-cubic-bezier/blob/v3.2.0/src/index.js (ISC license)
+export function curvifyArcCommands(startPoint: PathCommand.Point): OperatorFunction<PathCommand, Exclude<PathCommand, PathCommand.Arc>> {
+  return input => new Observable(subscriber => {
+    let lastPoint = startPoint;
+    return input.subscribe(
+      command => {
+        if (command.type !== PathCommand.Type.ARC) {
+          subscriber.next(command);
+          lastPoint = command.toPoint;
+          return;
+        }
+        if (command.radiusX === 0 || command.radiusY === 0) {
+          lastPoint = command.toPoint;
+          subscriber.next({type: PathCommand.Type.LINE, toPoint: lastPoint});
+          return;
+        }
+        const sinphi = Math.sin(command.rotateDegrees * Math.PI / 180);
+        const cosphi = Math.cos(command.rotateDegrees * Math.PI / 360);
+        const pxp =  cosphi * (lastPoint.x - command.toPoint.x) / 2 + sinphi * (lastPoint.y - command.toPoint.y) / 2;
+        const pyp = -sinphi * (lastPoint.x - command.toPoint.y) / 2 + cosphi * (lastPoint.y - command.toPoint.y) / 2;      
+        if (pxp === 0 && pyp === 0) {
+          lastPoint = command.toPoint;
+          subscriber.next({type: PathCommand.Type.LINE, toPoint: lastPoint});
+          return;
+        }
+        let rx = Math.abs(command.radiusX);
+        let ry = Math.abs(command.radiusY);
+        const lambda = (pxp*pxp) / (rx*rx) + (pyp*pyp) / (ry*ry);
+        if (lambda > 1) {
+          const lsqrt = Math.sqrt(lambda);
+          rx *= lsqrt;
+          ry *= lsqrt;
+        }
+        let centerX: number, centerY: number, ang1: number, ang2: number;
+        {
+          const rxsq  = rx*rx;
+          const rysq  = ry*ry;
+          const pxpsq = pxp*pxp;
+          const pypsq = pyp*pyp;
+        
+          let radicant = (rxsq * rysq) - (rxsq * pypsq) - (rysq * pxpsq);
+        
+          if (radicant < 0) radicant = 0;
+        
+          radicant /= (rxsq * pypsq) + (rysq * pxpsq);
+          radicant = Math.sqrt(radicant) * (!!command.largeArcFlag === !!command.sweepFlag ? -1 : 1);
+        
+          const centerxp = radicant *  rx / ry * pyp;
+          const centeryp = radicant * -ry / rx * pxp;
+        
+          centerX = cosphi * centerxp - sinphi * centeryp + (lastPoint.x + command.toPoint.x) / 2;
+          centerY = sinphi * centerxp + cosphi * centeryp + (lastPoint.y + command.toPoint.y) / 2;
+        
+          const vx1 = ( pxp - centerxp) / rx;
+          const vy1 = ( pyp - centeryp) / ry;
+          const vx2 = (-pxp - centerxp) / rx;
+          const vy2 = (-pyp - centeryp) / ry;
+      
+          {
+            const sign = (vy1 < 0 ? -1 : 1);
+            const dot = vx1;
+            ang1 = sign * Math.acos(dot > 1 ? 1 : dot < -1 ? -1 : dot);
+          }
+          {
+            const sign = ((vx1*vy2 - vy1*vx2) < 0) ? -1 : 1;
+            const dot = vx1*vx2 + vy1*vy2;
+            ang2 = sign * Math.acos(dot > 1 ? 1 : dot < -1 ? -1 : dot);
+            if (!command.sweepFlag) {
+              if (ang2 > 0) ang2 -= Math.PI * 2;
+              if (ang2 < 0) ang2 += Math.PI * 2;
+            }
+          }
+        }
+
+        // If 'ang2' == 90.0000000001, then `ratio` will evaluate to
+        // 1.0000000001. This causes `segments` to be greater than one, which is an
+        // unecessary split, and adds extra points to the bezier curve. To alleviate
+        // this issue, we round to 1.0 when the ratio is close to 1.0.
+        let ratio = Math.abs(ang2) / (Math.PI / 2);
+        if (Math.abs(1 - ratio) < 1e-7) ratio = 1;
+
+        const segments = Math.max(Math.ceil(ratio), 1);
+
+        ang2 /= segments;
+
+        const getPoint = (x: number, y: number) => ({
+          x: centerX + cosphi*x*rx - sinphi*y*ry,
+          y: centerY + sinphi*x*rx + cosphi*y*ry,
+        });
+
+        for (let i = 0; i < segments; i++) {
+          // If 90 degree circular arc, use a constant
+          // as derived from http://spencermortensen.com/articles/bezier-circle
+          const a = (ang2 ===  1.5707963267948966) ?  0.551915024494
+                  : (ang2 === -1.5707963267948966) ? -0.551915024494
+                  : (4 / 3) * Math.tan(ang2 / 4);
+      
+          const x1 = Math.cos(ang1);
+          const y1 = Math.sin(ang1);
+          const x2 = Math.cos(ang1 + ang2);
+          const y2 = Math.sin(ang1 + ang2);
+
+          subscriber.next({
+            type: PathCommand.Type.CUBIC_CURVE,
+            controlPoints: [
+              getPoint(x1 - y1*a, y1 + x1*a),
+              getPoint(x2 + y2*a, y2 - x2*a),
+            ],
+            toPoint: getPoint(x2, y2),
+          });
+
+          ang1 += ang2;
+        }
+
+        lastPoint = command.toPoint;
+      },
+      e => subscriber.error(e),
+      () => subscriber.complete(),
+    )
+  });
+}
+
+export function curvifySubPaths(): OperatorFunction<SubPath, SubPath<Exclude<PathCommand, PathCommand.Arc>>> {
+  return map(subPath => ({
+    startPoint: subPath.startPoint,
+    commands: from(subPath.commands).pipe( curvifyArcCommands(subPath.startPoint) ),
+    closed: subPath.closed,
+  }));
+}
