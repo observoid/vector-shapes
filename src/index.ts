@@ -677,3 +677,209 @@ export function curvifySubPaths(): OperatorFunction<SubPath, SubPath<Exclude<Pat
     closed: subPath.closed,
   }));
 }
+
+const CIRCLE_APPROX_FACTOR = 0.551915024494;
+const ONE_MINUS_CAF = 1-CIRCLE_APPROX_FACTOR;
+
+interface RectByDimensions {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface RectByCorners {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+type AxisRadius = number | string | [number | string, number | string];
+
+const ALWAYS_ZERO = () => [0, 0] as const;
+
+const createAxisRadiusCalculator = (r: AxisRadius): ((width: number, height: number) => readonly [number, number]) => {
+  if (typeof r === 'number') return r === 0 ? ALWAYS_ZERO : () => [r, r] as const;
+  if (typeof r === 'string') {
+    const factor = +r.slice(0, -1) / 100;
+    if (isNaN(factor) || r.slice(-1) !== '%') throw new Error('expecting percentage, got ' + r);
+    return (width, height) => [width * factor, height * factor] as const;
+  }
+  const [x, y] = r;
+  if (typeof x === 'number') {
+    if (typeof y === 'number') {
+      return () => [x, y] as const;
+    }
+    const yFactor = +y.slice(0, -1) / 100;
+    if (isNaN(yFactor) || y.slice(-1) !== '%') throw new Error('expecting percentage, got ' + y);
+    return (_, height) => [x, height * yFactor] as const;
+  }
+  else if (typeof y === 'number') {
+    const xFactor = +x.slice(0, -1) / 100;
+    if (isNaN(xFactor) || x.slice(-1) !== '%') throw new Error('expecting percentage, got ' + y);
+    return (width) => [width * xFactor, y] as const;
+  }
+  else {
+    const xFactor = +x.slice(0, -1) / 100;
+    if (isNaN(xFactor) || x.slice(-1) !== '%') throw new Error('expecting percentage, got ' + y);
+    const yFactor = +y.slice(0, -1) / 100;
+    if (isNaN(yFactor) || y.slice(-1) !== '%') throw new Error('expecting percentage, got ' + y);
+    console.log(x, y, xFactor, yFactor);
+    return (width, height) => [width * xFactor, height * yFactor] as const;
+  }
+};
+
+interface RectCorners {
+  topLeftRadius?: AxisRadius;
+  topRightRadius?: AxisRadius;
+  bottomLeftRadius?: AxisRadius;
+  bottomRightRadius?: AxisRadius;
+  leftRadius?: AxisRadius;
+  rightRadius?: AxisRadius;
+  topRadius?: AxisRadius;
+  bottomRadius?: AxisRadius;
+  xRadius?: AxisRadius;
+  yRadius?: AxisRadius;
+  radius?: AxisRadius;
+}
+
+export type RectInit = (RectByDimensions | RectByCorners) & RectCorners;
+
+export function rectangle(init: RectInit): SubPath {
+  let x1, y1, x2, y2;
+  if ('width' in init) {
+    x1 = init.x;
+    x2 = x1 + init.width;
+    y1 = init.y;
+    y2 = y1 + init.height;
+  }
+  else {
+    ({ x1, y1, x2, y2 } = init);
+  }
+  if (x2 < x1) [ x1, x2 ] = [ x2, x1 ];
+  if (y2 < y1) [ y1, y2 ] = [ y2, y1 ];
+  const width = x2 - x1;
+  const height = y2 - y1;
+  const [topLeftX, topLeftY] = createAxisRadiusCalculator(
+    init.topLeftRadius ?? init.leftRadius ?? init.topRadius ?? init.radius ?? 0
+  )(width, height);
+  const [topRightX, topRightY] = createAxisRadiusCalculator(
+    init.topRightRadius ?? init.rightRadius ?? init.topRadius ?? init.radius ?? 0
+  )(width, height);
+  const [bottomLeftX, bottomLeftY] = createAxisRadiusCalculator(
+    init.bottomLeftRadius ?? init.leftRadius ?? init.bottomRadius ?? init.radius ?? 0
+  )(width, height);
+  const [bottomRightX, bottomRightY] = createAxisRadiusCalculator(
+    init.bottomRightRadius ?? init.rightRadius ?? init.bottomRadius ?? init.radius ?? 0
+  )(width, height);
+  const startPoint = {x:x1, y:y1 + topLeftY};
+  const commands = new Array<PathCommand>();
+  const closed = true;
+  if (topLeftX*topLeftY) {
+    commands.push({
+      type: PathCommand.Type.CUBIC_CURVE,
+      controlPoints: [{x: x1, y:y1 + ONE_MINUS_CAF * topLeftY}, {x: x1 + ONE_MINUS_CAF * topLeftX, y:y1}],
+      toPoint: {x:x1 + topLeftX, y:y1},
+    });
+  }
+  commands.push({type:PathCommand.Type.LINE, toPoint:{x:x2 - topRightX, y:y1}});
+  if (topRightX * topRightY) {
+    commands.push({
+      type: PathCommand.Type.CUBIC_CURVE,
+      controlPoints: [{x: x2 - ONE_MINUS_CAF * topRightX, y:y1}, {x: x2, y:y1 + ONE_MINUS_CAF * topRightY}],
+      toPoint: {x:x2, y:y1 + topRightY},
+    });
+  }
+  commands.push({type:PathCommand.Type.LINE, toPoint:{x:x2, y:y2 - bottomRightY}});
+  if (bottomRightX * bottomRightY) {
+    commands.push({
+      type: PathCommand.Type.CUBIC_CURVE,
+      controlPoints: [{x: x2, y:y2 - ONE_MINUS_CAF * bottomRightY}, {x: x2 - ONE_MINUS_CAF * bottomRightX, y:y2}],
+      toPoint: {x:x2 - bottomRightX, y:y2},
+    });
+  }
+  commands.push({type:PathCommand.Type.LINE, toPoint:{x:x1 + bottomLeftX, y:y2}});
+  if (bottomLeftX * bottomLeftY) {
+    commands.push({
+      type: PathCommand.Type.CUBIC_CURVE,
+      controlPoints: [{x: x1 + ONE_MINUS_CAF * bottomLeftX, y:y2}, {x: x1, y:y2 - ONE_MINUS_CAF * bottomLeftY}],
+      toPoint: {x:x1, y:y2 - bottomLeftY},
+    });
+  }
+  return {startPoint, commands, closed};
+}
+
+type OvalByRadius = {centerX: number, centerY: number} & (
+  {radius: number} | {radiusX: number, radiusY: number}
+);
+export type OvalInit = RectByDimensions | OvalByRadius;
+
+export function oval(init: OvalInit): SubPath {
+  let x1, y1, x2, y2, radiusX, radiusY;
+  if ('centerX' in init) {
+    if ('radiusX' in init) {
+      ({radiusX, radiusY} = init);
+    }
+    else {
+      radiusX = radiusY = init.radius;
+    }
+    radiusX = radiusX < 0 ? -radiusX : radiusX;
+    radiusY = radiusY < 0 ? -radiusY : radiusY;
+    x1 = init.centerX - radiusX;
+    x2 = init.centerX + radiusX;
+    y1 = init.centerY - radiusY;
+    y2 = init.centerY + radiusY;
+  }
+  else {
+    x1 = init.x;
+    x2 = x1 + init.width;
+    y1 = init.y;
+    y2 = y1 + init.height;
+    if (x2 < x1) [x2, x1] = [x1, x2];
+    if (y2 < y1) [y2, y1] = [y1, y2];
+    radiusX = (x2 - x1)/2;
+    radiusY = (y2 - y1)/2;
+  }
+  return {
+    startPoint: {
+      x: x1 + radiusX,
+      y: y1,
+    },
+    commands: [
+      {
+        type: PathCommand.Type.CUBIC_CURVE,
+        controlPoints: [
+          {x:x2 - ONE_MINUS_CAF*radiusX, y:y1},
+          {x:x2, y:y1 + ONE_MINUS_CAF*radiusY},
+        ],
+        toPoint: {x:x2, y:y1 + radiusY},
+      },
+      {
+        type: PathCommand.Type.CUBIC_CURVE,
+        controlPoints: [
+          {x:x2, y:y2 - ONE_MINUS_CAF*radiusY},
+          {x:x2 - ONE_MINUS_CAF*radiusX, y:y2},
+        ],
+        toPoint: {x:x2 - radiusX, y:y2},
+      },
+      {
+        type: PathCommand.Type.CUBIC_CURVE,
+        controlPoints: [
+          {x:x1 + ONE_MINUS_CAF*radiusX, y:y2},
+          {x:x1, y:y2 - ONE_MINUS_CAF*radiusY},
+        ],
+        toPoint: {x:x1, y:y2 - radiusY},
+      },
+      {
+        type: PathCommand.Type.CUBIC_CURVE,
+        controlPoints: [
+          {x:x1, y:y1 + ONE_MINUS_CAF*radiusY},
+          {x:x1 + ONE_MINUS_CAF*radiusX, y:y1},
+        ],
+        toPoint: {x:x1 + radiusX, y:y1},
+      },
+    ],
+    closed: true,
+  };
+}
